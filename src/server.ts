@@ -20,11 +20,24 @@ app.get("/movies", async (_, res)=>{
   res.json(movies)
 });
 
-app.post("/movies", async (req, res) => {
+app.post("/movies", async(req, res) => {
 
   const {title, genre_id, language_id, oscar_count, release_date} = req.body;
 
   try{
+
+    //case insensitive - se a busca for fieta por Jhon Wick ou jhon Wick ou JHON WICK, o registro vai ser retornado na consulta.
+
+
+    //case sensitive - se a busca for fieta por Jhon Wick e no banco de dados estiver jhon Wick, não vai ser retornado na consulta.
+    const movieWithSameTitle = await prisma.movie.findFirst({
+      where: { title: { equals:title, mode: "insensitive"} },
+    });
+
+    if(movieWithSameTitle) {
+      return res.status(409).send({message: "Já existe um filme cadastrado com este titulo."});
+    }
+
     await prisma.movie.create({
       data: {
         title,
