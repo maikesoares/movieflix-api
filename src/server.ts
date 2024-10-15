@@ -2,7 +2,6 @@ import express from "express";
 import { PrismaClient } from "@prisma/client";
 import swaggerUi from 'swagger-ui-express';
 import swaggerDocument from  '../swagger.json'
-import { log } from "console";
 
 const port = 3000;
 const app = express();
@@ -13,7 +12,9 @@ app.use(express.json());
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get("/movies", async (_, res)=>{
-  const movies = await prisma.movie.findMany({
+  
+  try{
+    const movies = await prisma.movie.findMany({
     orderBy: {
       title: 'asc'
     },
@@ -21,13 +22,32 @@ app.get("/movies", async (_, res)=>{
       genres: true,
       language: true,
     }
-  });
-  res.json(movies)
+    });
+    //1 - Cálculo da quantidade total de filmes
+    const totalMovies = movies.length;
+
+    // Cálculo da média de duração dos filmes
+    let totalDuration = 0;
+    for(const movie of movies ){
+      totalDuration += movie.duration;
+    }
+    const averageDuration = totalMovies > 0 ? totalDuration / totalMovies : 0;
+
+    res.json({
+      totalMovies,
+      averageDuration,
+      movies
+    })
+  }catch(error) {
+    console.log(error);
+    res.status(500).send({message: "Houve um problema ao buscar os filmes."})
+  }
+
 });
 
 app.post("/movies", async(req, res) => {
 
-  const {title, genre_id, language_id, oscar_count, release_date} = req.body;
+  const {title, genre_id, language_id, oscar_count, release_date, duration} = req.body;
 
   try{
     const movieWithSameTitle = await prisma.movie.findFirst({
@@ -44,7 +64,8 @@ app.post("/movies", async(req, res) => {
         genre_id,
         language_id,
         oscar_count,
-        release_date: new Date(release_date)
+        release_date: new Date(release_date),
+        duration,
       }
     });
   
