@@ -48,6 +48,7 @@ app.post("/movies", async(req, res) => {
     });
   
   }catch (error){
+    console.log(error);
     return res.status(500).send({message: "Falha ao cadastar um filme"});
   }
   
@@ -80,6 +81,7 @@ app.put("/movies/:id", async(req, res) => {
       data: data,
     })
   }catch(error){
+    console.log(error);
     return res.status(500).send({message: "Falha ao atualizar o registro do filme."})
   } 
   //retornar o status correto de que o filme foi atualizado
@@ -98,6 +100,7 @@ app.delete("/movies/:id", async(req, res) => {
 
     await prisma.movie.delete({ where: {id} })
   }catch(error){
+    console.log(error);
     return res.status(500).send({message: "Não foi possível remover o filme."})
   }
 
@@ -125,9 +128,124 @@ app.get("/movies/:genreName", async(req, res) => {
 
     res.status(200).send(moviesFilteredByGenreName);
   }catch(error) {
+    console.log(error);
     return res.status(500).send({message:"Falha ao filtrar filmes por gênero."})
   }
 })
+
+//1) Criando um endpoin para atualizar informações de gênero
+app.put("/genres/:id", async(req, res) => {
+  //1. Extrai o `id` da rota e o `name` do body da requisição.
+  const { id } = req.params;
+  const { name } = req.body;
+  
+  //2. Verifica se o `name` foi fornecido. Se não, retorna um erro 400 ao cliente informando que o nome é obrigatório.
+  if(!name) {
+    return res.status(400).send({message: "O nome do gênero é obrigatório."})
+  }
+
+  try{
+    
+    //3. Tenta encontrar um gênero com o id fornecido. Se o gênero não for encontrado, retorna um erro 404 ao cliente.
+    const genre = await prisma.genre.findUnique({
+      where: {id: Number(id)}
+    });
+
+    if(!genre) {
+      return res.status(404).send({message: "Gênero não encontrado"})
+    }
+
+    //4. Verifica se já existe outro gênero com o mesmo nome (ignorando maiúsculas e minúsculas), excluindo o gênero que está sendo atualizado. Se um gênero com o mesmo nome já existir, retorna um erro 409 ao cliente.
+    const existingGenre = await prisma.genre.findFirst({
+      where: {
+        name: {equals: name, mode: "insensitive"},
+        id: {not: Number(id)}
+      }
+    });
+
+    if(existingGenre){
+      return res.status(409).send({message: "Este nome de gênero já existe."})
+    }
+
+    //5. Se não houver conflito, atualiza o gênero com o novo nome.
+    const updateGenre = await prisma.genre.update({
+      where: {id:Number(id)},
+      data: {name}
+    });
+
+    //6. Se a atualização for bem-sucedida, retorna o gênero atualizado ao cliente com um status 200.
+    res.status(200).json(updateGenre)
+  }catch(error) {
+    //7. Se ocorrer um erro durante qualquer parte do processo, retorna um erro 500 ao cliente.
+    console.log(error);
+    res.status(500).send({message: "Houve um problema ao atualizar o gênero."})
+  }
+
+});
+
+app.post("/genres", async (req, res) => {
+
+  //1. Extrai o `name` do body da requisição.
+  const { name } = req.body;
+  console.log(name);
+
+
+  //2. Verifica se o `name` foi enviado. Se não, retorna um erro 400 ao cliente informando que o nome é obrigatório.
+  if(!name) {
+    return res.status(400).send({message:"Por favor, informe o nome do gênero."})
+  }
+
+  //3. Tenta encontrar um gênero existente com o mesmo nome (ignorando a diferença entre maiúsculas e minúsculas).
+  try{
+    const existingGenre = await prisma.genre.findFirst({
+      where: {
+        name: {equals: name, mode: "insensitive"},
+      }
+    });
+
+    //4. Se um gênero com o mesmo nome já existir, retorna um erro 409 ao cliente informando que o gênero já existe.
+    if(existingGenre){
+      return res.status(409).send({message: "Este gênero já existe."})
+    }
+
+    //5. Se o gênero não existir, tenta criar um novo gênero no banco de dados.
+    const newGenre = await prisma.genre.create({
+      data: {
+        name
+      }
+    });
+
+    //6. Se a criação for bem-sucedida, retorna o novo gênero ao cliente com um status 201.
+    res.status(201).json(newGenre);
+
+  }catch(error){
+    //7. Se ocorrer um erro durante qualquer parte deste processo, retorna um erro 500 ao cliente.
+    console.log(error);
+    return res.status(500).send({message: "Erro ao cadastar gênero."})
+  }
+});
+
+app.get("/genres", async (_, res) => {
+
+  //1. Ele busca todos os gêneros na base de dados, ordenando-os pelo campo `name` em ordem ascendente.
+  try {
+    const genres = await prisma.genre.findMany({
+      orderBy: {
+        name: 'asc'
+      }
+    });
+    
+    //2. Se a busca for bem-sucedida, ele retorna a lista de gêneros ao cliente.
+    res.json(genres)
+  }catch(error){
+    //3. Se ocorrer um erro durante a busca, retorna um erro 500 ao cliente.
+    console.log(error);
+    return res.status(500).send({message: "Erro ao listar gêneros."})
+  }
+
+});
+
+
 
 app.listen(port, () => {
   console.log(`Servidor em execução na porta ${port}`);
