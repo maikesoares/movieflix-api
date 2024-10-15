@@ -2,6 +2,7 @@ import express from "express";
 import { PrismaClient } from "@prisma/client";
 import swaggerUi from 'swagger-ui-express';
 import swaggerDocument from  '../swagger.json'
+import { log } from "console";
 
 const port = 3000;
 const app = express();
@@ -245,7 +246,33 @@ app.get("/genres", async (_, res) => {
 
 });
 
+app.delete("/genres/:id", async (req, res) => {
+  //1. Extrai o `id` do body da requisição.
+  const { id } = req.params;
+  //2. Tenta encontrar um gênero com o `id` fornecido.
+  try{
+    const genre = await prisma.genre.findUnique({
+      where: {id: Number(id)}
+    });
 
+    //3. Se o gênero não for encontrado, retorna um erro 404 ao cliente.
+    if(!genre) {
+      return res.status(404).send({message: "Gênero não encontrado."})
+    }
+
+     //4. Se o gênero for encontrado, tenta deletar o gênero do banco de dados.
+     await prisma.genre.delete({
+      where: {id: Number(id)}
+     })
+
+      //5. Se a remoção for bem-sucedida, retorna uma mensagem de sucesso ao cliente com um status 200.
+      res.status(200).send({message: "Gênero excluído com sucesso !"})
+    }catch(error) {
+      //6. Se ocorrer um erro durante qualquer parte deste processo, retorna um erro 500 ao cliente.
+      console.log(error);
+      return res.status(500).send({message: "Houve um problema ao remover o gênero."})
+    }
+})
 
 app.listen(port, () => {
   console.log(`Servidor em execução na porta ${port}`);
