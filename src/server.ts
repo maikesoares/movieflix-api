@@ -2,6 +2,7 @@ import express from "express";
 import { Prisma, PrismaClient } from "@prisma/client";
 import swaggerUi from 'swagger-ui-express';
 import swaggerDocument from  '../swagger.json'
+import { equal } from "assert";
 
 const port = 3000;
 const app = express();
@@ -329,6 +330,38 @@ app.get("/movies/sort", async(req, res) => {
     res.status(500).send({message: "Houve um problema ao buscar os filmes."});
   }
   
+});
+
+app.get("movies/language", async(req, res) => {
+  const {language} = req.query;
+  const languageName = language as string;
+
+  let where = {};
+  if (languageName) {
+    where = {
+      language: {
+        name: {
+          equals: languageName,
+          mode: "insensitive",
+        },
+      },
+    };
+  }
+
+  try {
+    const movies = await prisma.movie.findMany({
+      where: where,
+      include: {
+        genres: true,
+        language: true,
+      }
+    });
+
+    res.json(movies)
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({message: "Houve um problema ao buscar os filmes."})
+  }
 });
 
 app.listen(port, () => {
